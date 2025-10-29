@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline';">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <title>智能化施工任务管理系统</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="styles/main.css">
+    <script src="config.js"></script>
+    <script>
+        // 权限检查：确保用户已登录
+        (function checkAuth() {
+            // 标记：防止重复检查
+            if (window.__authChecked) return;
+            window.__authChecked = true;
+
+            // 检查登录状态
+            fetch('api/index.php/auth?action=check', {
+                method: 'GET',
+                credentials: 'include'
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (!data.success) {
+                    // 未登录，重定向到登录页面
+                    window.location.href = 'login.html';
+                } else {
+                    // 已登录，显示用户名（可选）
+                    console.log('用户已登录:', data.data.username);
+                }
+            })
+            .catch(error => {
+                console.error('权限检查失败:', error);
+                // 错误时也重定向到登录页面
+                window.location.href = 'login.html';
+            });
+        })();
+    </script>
+</head>
+<body>
+    <!-- 数据库状态指示器，供 app.js 使用 -->
+    <!-- <div style="margin: 10px 0;">
+        <span id="db-indicator" class="db-indicator local">本地</span>
+        <span id="db-text">本地存储</span>
+    </div> -->
+    <div class="container">
+        <header class="header">
+            <h1>智能化施工任务管理系统</h1>
+            <div class="header-controls">
+                <div class="date-selector">
+                    <button id="prev-day-btn" class="btn-secondary date-nav-btn">◀ 前一天</button>
+                    <input type="date" id="date-selector">
+                    <button id="today-btn" class="btn-secondary">今天</button>
+                    <button id="next-day-btn" class="btn-secondary date-nav-btn">后一天 ▶</button>
+                </div>
+                <button id="print-today-btn" class="btn-print">打印今日任务</button>
+                <button onclick="window.open('admin.html', '_blank')" class="btn-secondary">后台管理</button>
+                <div style="display: flex; align-items: center; gap: 10px; border-left: 1px solid #ddd; padding-left: 10px; margin-left: 10px;">
+                    <span id="user-info" style="font-size: 14px; color: #666;">用户: <strong id="username-display">-</strong></span>
+                    <button onclick="handleLogout()" class="btn-secondary" style="padding: 6px 12px; font-size: 14px;">登出</button>
+                </div>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <!-- 左侧：今日任务 -->
+            <section class="left-panel">
+                <div class="panel-header">
+                    <h2>今日任务</h2>
+                    <span id="today-date" class="date-display"></span>
+                    <p class="panel-description">包含所有未完成任务 + 今日已完成任务</p>
+                </div>
+                <div class="today-stats">
+                    <span id="today-total">总计: 0</span>
+                    <span id="today-pending">待办: 0</span>
+                    <span id="today-in-progress">进行中: 0</span>
+                    <span id="today-completed">已完成: 0</span>
+                </div>
+                <div id="today-tasks-container" class="tasks-container">
+                    <p class="no-tasks">今日暂无任务</p>
+                </div>
+            </section>
+
+            <!-- 中间：任务管理 -->
+            <section class="center-panel">
+                <div class="task-form">
+                    <h2>添加新任务</h2>
+                    <form id="add-task-form">
+                        <div class="form-group">
+                            <input type="text" id="task-title" placeholder="任务标题" required>
+                        </div>
+                        <div class="form-group">
+                            <textarea id="task-description" placeholder="任务描述（可选）" rows="2"></textarea>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <div class="category-select-container">
+                                    <input type="hidden" id="task-category" value="">
+                                    <button type="button" id="select-category-btn" class="select-btn category-btn">选择类别</button>
+                                    <span id="selected-category-display" class="selected-category-display">未选择</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <div class="assignee-and-submit-container">
+                                    <button type="button" id="select-assignees-btn" class="select-btn">选择人员</button>
+                                    <button type="submit" class="submit-btn">添加任务</button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="task-controls">
+                    <div class="search-bar">
+                        <input type="text" id="search-input" placeholder="搜索任务...">
+                    </div>
+                    <div class="filter-section">
+                        <div class="filter-buttons">
+                            <button class="filter-btn active" data-filter="all">全部</button>
+                            <button class="filter-btn" data-filter="pending">待办</button>
+                            <button class="filter-btn" data-filter="in-progress">进行中</button>
+                            <button class="filter-btn" data-filter="completed">已完成</button>
+                        </div>
+                        <div class="category-filter">
+                            <select id="category-filter">
+                                <option value="all">所有类别</option>
+                            </select>
+                        </div>
+                        <div class="assignee-filter">
+                            <select id="assignee-filter">
+                                <option value="all">所有人员</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="all-tasks">
+                    <h3>所有任务</h3>
+                    <div class="stats">
+                        <span id="total-tasks">总计: 0</span>
+                        <span id="pending-tasks">待办: 0</span>
+                        <span id="in-progress-tasks">进行中: 0</span>
+                        <span id="completed-tasks">已完成: 0</span>
+                    </div>
+                    <div id="all-tasks-container" class="tasks-container">
+                        <p class="no-tasks">暂无任务</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 右侧：前一天完成情况 -->
+            <section class="right-panel">
+                <div class="panel-header">
+                    <h2>前一天任务完成情况</h2>
+                    <span id="yesterday-date" class="date-display"></span>
+                </div>
+                <div class="completion-summary">
+                    <div class="completion-rate">
+                        <div class="rate-circle">
+                            <span id="completion-percentage">0%</span>
+                        </div>
+                        <p>完成率</p>
+                    </div>
+                    <div class="completion-details">
+                        <div class="detail-item">
+                            <span class="label">总任务:</span>
+                            <span id="yesterday-total-count">0</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">已完成:</span>
+                            <span id="yesterday-completed-count">0</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">未完成:</span>
+                            <span id="yesterday-incomplete-count">0</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="yesterday-tasks">
+                    <h4>前一天的任务</h4>
+                    <div id="yesterday-tasks-container" class="tasks-container">
+                        <p class="no-tasks">前一天暂无任务</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- 编辑任务模态框 -->
+    <div id="edit-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>编辑任务</h2>
+            <form id="edit-task-form">
+                <div class="form-group">
+                    <input type="text" id="edit-task-title" placeholder="任务标题" required>
+                </div>
+                <div class="form-group">
+                    <textarea id="edit-task-description" placeholder="任务描述" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <select id="edit-task-status">
+                        <option value="pending">待办</option>
+                        <option value="in-progress">进行中</option>
+                        <option value="completed">已完成</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <div class="category-select-container">
+                        <input type="hidden" id="edit-task-category" value="">
+                        <button type="button" id="edit-select-category-btn" class="select-btn category-btn">选择类别</button>
+                        <span id="edit-selected-category-display" class="selected-category-display">未选择</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="assignee-input-container">
+                        <!-- <label>施工人员</label> -->
+                        <div class="assignee-selector">
+                            <!-- <div class="selected-assignees" id="edit-selected-assignees">
+                                <span class="placeholder">点击选择施工人员...</span>
+                            </div> -->
+                            <button type="button" id="edit-select-assignees-btn" class="select-btn">选择人员</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="submit">保存</button>
+                    <button type="button" id="cancel-edit">取消</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 备注管理模态框 -->
+    <div id="notes-modal" class="modal">
+        <div class="modal-content notes-modal-content">
+            <span class="close" id="close-notes-modal">&times;</span>
+            <h2 id="notes-modal-title">任务备注</h2>
+            
+            <div class="add-note-section">
+                <h3>添加备注</h3>
+                <form id="add-note-form">
+                    <div class="form-group">
+                        <textarea id="new-note-content" placeholder="输入备注内容..." rows="3" required></textarea>
+                    </div>
+                    <button type="submit">添加备注</button>
+                </form>
+            </div>
+            
+            <div class="notes-list-section">
+                <h3>所有备注</h3>
+                <div id="notes-list">
+                    <p class="no-notes">暂无备注</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑备注模态框 -->
+    <div id="edit-note-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" id="close-edit-note-modal">&times;</span>
+            <h2>编辑备注</h2>
+            <form id="edit-note-form">
+                <div class="form-group">
+                    <textarea id="edit-note-content" placeholder="编辑备注内容..." rows="3" required></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="submit">保存</button>
+                    <button type="button" id="cancel-edit-note">取消</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 人员选择模态框 -->
+    <div id="assignee-select-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" id="close-assignee-modal">&times;</span>
+            <h2>选择施工人员</h2>
+            <div class="assignee-modal-content">
+                <div class="assignee-search">
+                    <input type="text" id="assignee-modal-search" placeholder="搜索人员姓名、角色或部门...">
+                </div>
+                <div class="assignee-list" id="assignee-modal-list">
+                    <!-- 人员列表将在这里动态生成 -->
+                </div>
+                <div class="modal-actions">
+                    <button type="button" id="confirm-assignee-selection" class="btn-primary">确定</button>
+                    <button type="button" id="cancel-assignee-selection" class="btn-secondary">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 类别选择模态框 -->
+    <div id="category-select-modal" class="modal">
+        <div class="modal-content category-modal-layout">
+            <span class="close" id="close-category-modal">&times;</span>
+            <h2>选择任务类别</h2>
+            <div class="category-modal-content">
+                <div class="category-search">
+                    <input type="text" id="category-modal-search" placeholder="搜索类别...">
+                </div>
+                <div class="category-layout">
+                    <!-- 左侧：一级类别菜单 -->
+                    <div class="category-left-panel">
+                        <div class="category-level-title">类别</div>
+                        <div class="category-first-level" id="category-first-level">
+                            <!-- 一级菜单将在这里动态生成 -->
+                        </div>
+                    </div>
+                    <!-- 右侧：二三级类别树 -->
+                    <div class="category-right-panel">
+                        <div class="category-level-title">子类别</div>
+                        <div class="category-tree" id="category-tree-container">
+                            <!-- 二三级类别树将在这里动态生成 -->
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" id="confirm-category-selection" class="btn-primary">确定</button>
+                    <button type="button" id="cancel-category-selection" class="btn-secondary">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 删除任务确认弹窗 -->
+    <div id="delete-confirm-modal" class="delete-confirm-modal">
+        <div class="delete-confirm-content">
+            <div class="delete-confirm-header">
+                <h3>删除任务</h3>
+            </div>
+            <div class="delete-confirm-body">
+                <div class="delete-confirm-icon">🗑️</div>
+                <div class="delete-confirm-message">确定要删除此任务吗？</div>
+                <div id="delete-confirm-task" class="delete-confirm-task"></div>
+                <div class="delete-confirm-warning">此操作无法撤销</div>
+            </div>
+            <div class="delete-confirm-actions">
+                <button type="button" id="confirm-delete-btn" class="delete-confirm-btn btn-confirm-delete">删除</button>
+                <button type="button" id="cancel-delete-btn" class="delete-confirm-btn btn-cancel-delete">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 图片管理模态框 -->
+    <div id="images-modal" class="modal">
+        <div class="modal-content images-modal-content">
+            <span class="close" id="close-images-modal">&times;</span>
+            <h2 id="images-modal-title">任务图片</h2>
+
+            <div class="upload-section">
+                <h3>上传图片</h3>
+                <div class="upload-area">
+                    <input type="file" id="image-upload" accept="image/*" multiple style="display: none;">
+                    <button type="button" id="upload-btn" class="btn-upload">
+                        <span>📷</span> 选择图片
+                    </button>
+                    <div class="upload-info">支持 JPG, PNG, GIF 格式，单个文件最大 5MB</div>
+                </div>
+            </div>
+
+            <div class="images-gallery-section">
+                <h3>已上传的图片</h3>
+                <div id="images-gallery" class="images-gallery">
+                    <div class="no-images">暂无图片</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 图片预览模态框 -->
+    <div id="image-preview-modal" class="modal">
+        <div class="modal-content image-preview-content">
+            <span class="close" id="close-image-preview">&times;</span>
+            <div class="image-preview-container">
+                <div class="image-navigation">
+                    <button type="button" id="prev-image-btn" class="nav-btn prev-btn">❮</button>
+                    <div class="image-wrapper">
+                        <img id="preview-image" src="" alt="图片预览">
+                        <div class="image-info">
+                            <span id="image-counter">1 / 1</span>
+                            <span id="image-name">图片名称</span>
+                        </div>
+                    </div>
+                    <button type="button" id="next-image-btn" class="nav-btn next-btn">❯</button>
+                </div>
+                <div class="image-preview-actions">
+                    <button type="button" id="delete-image-btn" class="btn-delete">删除图片</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 任务完成确认弹窗 -->
+    <div id="complete-confirm-modal" class="complete-confirm-modal">
+        <div class="complete-confirm-content">
+            <div class="complete-confirm-header">
+                <h3>确认完成任务</h3>
+            </div>
+            <div class="complete-confirm-body">
+                <div class="complete-confirm-message">确定要将此任务标记为已完成吗？</div>
+                <div id="complete-confirm-task" class="complete-confirm-task"></div>
+            </div>
+            <div class="complete-confirm-actions">
+                <button type="button" id="confirm-complete-btn" class="complete-confirm-btn btn-confirm-complete">确认完成</button>
+                <button type="button" id="cancel-complete-btn" class="complete-confirm-btn btn-cancel-complete">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 任务完成成功弹窗 -->
+    <div id="complete-success-modal" class="complete-success-modal">
+        <div class="complete-success-content">
+            <div class="complete-success-header">
+                <h3>任务已完成</h3>
+            </div>
+            <div class="complete-success-body">
+                <div id="complete-success-message" class="complete-success-message-text">任务已成功标记为完成！</div>
+            </div>
+            <div class="complete-success-actions">
+                <button type="button" id="complete-success-ok-btn" class="complete-success-btn btn-complete-success-ok">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 打印样式 -->
+    <style media="print">
+        .container { max-width: none; padding: 20px; }
+        .header, .center-panel, .right-panel { display: none !important; }
+        .left-panel { width: 100% !important; max-width: none !important; }
+        .main-content { grid-template-columns: 1fr !important; }
+        .panel-header h2 { font-size: 24px; margin-bottom: 20px; }
+        .task-item { page-break-inside: avoid; margin-bottom: 15px; border: 1px solid #ccc; }
+        .task-actions { display: none !important; }
+        @page { margin: 1cm; }
+    </style>
+
+    <script>
+        // 加载用户信息
+        async function loadUserInfo() {
+            try {
+                const response = await fetch('api/index.php/auth?action=check', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                if (data.success && data.data && data.data.username) {
+                    document.getElementById('username-display').textContent = data.data.username;
+                }
+            } catch (error) {
+                console.error('加载用户信息失败:', error);
+            }
+        }
+
+        // 处理登出
+        async function handleLogout() {
+            if (!confirm('确定要登出吗？')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('api/index.php/auth?action=logout', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                if (data.success) {
+                    // 清空保存的凭证
+                    localStorage.removeItem('todolist_credentials');
+                    // 跳转到登录页面
+                    window.location.href = 'login.html';
+                } else {
+                    alert('登出失败，请重试');
+                }
+            } catch (error) {
+                console.error('登出错误:', error);
+                alert('登出失败，请重试');
+            }
+        }
+
+        // 页面加载时获取用户信息
+        document.addEventListener('DOMContentLoaded', loadUserInfo);
+    </script>
+
+    <script type="module" src="src/app.js"></script>
+</body>
+</html>

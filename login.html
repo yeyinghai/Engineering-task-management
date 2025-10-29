@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - 施工任务管理系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #333;
+        }
+
+        .login-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            max-width: 420px;
+            padding: 50px 40px;
+            animation: slideUp 0.5s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .login-title {
+            text-align: center;
+            font-size: 32px;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .login-subtitle {
+            text-align: center;
+            color: #999;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        input[type="text"],
+        input[type="password"],
+        input[type="email"] {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: all 0.3s;
+            background: #f9f9f9;
+        }
+
+        input[type="text"]:focus,
+        input[type="password"]:focus,
+        input[type="email"]:focus {
+            outline: none;
+            border-color: #667eea;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        input::placeholder {
+            color: #aaa;
+        }
+
+        .remember-me {
+            display: flex;
+            align-items: center;
+            margin-bottom: 25px;
+            gap: 8px;
+        }
+
+        .remember-me input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: #667eea;
+        }
+
+        .remember-me label {
+            margin: 0;
+            cursor: pointer;
+            font-weight: normal;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .error-message {
+            color: #e74c3c;
+            font-size: 13px;
+            margin-top: 5px;
+            display: none;
+            padding: 8px 12px;
+            background: #fee;
+            border-radius: 4px;
+            border-left: 3px solid #e74c3c;
+        }
+
+        .success-message {
+            color: #27ae60;
+            font-size: 13px;
+            margin-top: 5px;
+            display: none;
+            padding: 8px 12px;
+            background: #efe;
+            border-radius: 4px;
+            border-left: 3px solid #27ae60;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 10px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .switch-form {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .switch-form a {
+            color: #667eea;
+            text-decoration: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: color 0.3s;
+        }
+
+        .switch-form a:hover {
+            color: #764ba2;
+            text-decoration: underline;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .form-divider {
+            text-align: center;
+            margin: 20px 0;
+            color: #ddd;
+        }
+
+        .logo-area {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .logo-area h2 {
+            font-size: 28px;
+            margin-bottom: 5px;
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <!-- 登录表单 -->
+        <div id="loginForm" class="form-section">
+            <div class="logo-area">
+                <h1 class="login-title">🔐 登录</h1>
+                <p class="login-subtitle">施工任务管理系统</p>
+            </div>
+
+            <form id="loginFormEl" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label for="username">用户名</label>
+                    <input
+                        type="text"
+                        id="username"
+                        name="username"
+                        placeholder="输入用户名 (默认: admin)"
+                        autocomplete="username"
+                        required
+                    >
+                    <div class="error-message" id="usernameError"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">密码</label>
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        placeholder="输入密码 (默认: admin123)"
+                        autocomplete="current-password"
+                        required
+                    >
+                    <div class="error-message" id="passwordError"></div>
+                </div>
+
+                <div class="remember-me">
+                    <input type="checkbox" id="rememberMe" name="rememberMe">
+                    <label for="rememberMe">记住账号和密码</label>
+                </div>
+
+                <div id="loginError" class="error-message"></div>
+                <div id="loginSuccess" class="success-message"></div>
+
+                <button type="submit" class="btn btn-primary" id="loginBtn">
+                    登 录
+                </button>
+
+                <div class="loading" id="loginLoading">
+                    <span class="spinner"></span>正在验证...
+                </div>
+            </form>
+
+            <div class="switch-form" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;">
+                <p style="font-size: 13px; color: #999; margin-bottom: 10px;">💡 默认账号: admin 密码: admin123</p>
+                <p style="font-size: 12px; color: #bbb;">登录后可在菜单中修改账号和密码</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            checkExistingLogin();
+            loadSavedCredentials();
+        });
+
+        /**
+         * 检查是否已有有效的登录会话
+         */
+        async function checkExistingLogin() {
+            try {
+                const response = await fetch('api/index.php/auth?action=check', {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // 已登录，重定向到主页面
+                    console.log('已有登录会话，跳转到主页面');
+                    window.location.href = 'index.html';
+                }
+            } catch (error) {
+                // 网络错误，继续显示登录页面
+                console.error('检查登录状态失败:', error);
+            }
+        }
+
+        /**
+         * 从 localStorage 加载已保存的凭证
+         */
+        function loadSavedCredentials() {
+            const saved = localStorage.getItem('todolist_credentials');
+            if (saved) {
+                try {
+                    const credentials = JSON.parse(saved);
+                    if (credentials.username) {
+                        document.getElementById('username').value = credentials.username;
+                        document.getElementById('rememberMe').checked = true;
+                    }
+                } catch (e) {
+                    console.error('加载保存的凭证失败:', e);
+                }
+            }
+        }
+
+        /**
+         * 处理登录表单提交
+         */
+        async function handleLogin(event) {
+            event.preventDefault();
+
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const rememberMe = document.getElementById('rememberMe').checked;
+
+            // 清空错误信息
+            clearAllErrors();
+
+            // 基本验证
+            if (!username || !password) {
+                showError('loginError', '用户名和密码不能为空');
+                return;
+            }
+
+            // 显示加载状态
+            setLoading('login', true);
+            document.getElementById('loginBtn').disabled = true;
+
+            try {
+                const response = await fetch('api/index.php/auth?action=login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        username,
+                        password,
+                        rememberMe
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // 保存凭证（如果选中记住）
+                    if (rememberMe) {
+                        localStorage.setItem('todolist_credentials', JSON.stringify({
+                            username: username
+                        }));
+                    } else {
+                        localStorage.removeItem('todolist_credentials');
+                    }
+
+                    // 保存登录标识
+                    sessionStorage.setItem('todolist_login_time', Date.now().toString());
+
+                    showSuccess('loginSuccess', '✓ 登录成功，正在进入系统...');
+
+                    // 延迟跳转
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 1000);
+                } else {
+                    showError('loginError', data.error || '登录失败，请重试');
+                    setLoading('login', false);
+                    document.getElementById('loginBtn').disabled = false;
+                }
+            } catch (error) {
+                console.error('登录错误:', error);
+                showError('loginError', '网络错误，请检查您的连接');
+                setLoading('login', false);
+                document.getElementById('loginBtn').disabled = false;
+            }
+        }
+
+        /**
+         * 显示错误信息
+         */
+        function showError(elementId, message) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.textContent = message;
+                element.style.display = 'block';
+            }
+        }
+
+        /**
+         * 显示成功信息
+         */
+        function showSuccess(elementId, message) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.textContent = message;
+                element.style.display = 'block';
+            }
+        }
+
+        /**
+         * 清空所有错误和成功信息
+         */
+        function clearAllErrors() {
+            document.querySelectorAll('.error-message, .success-message').forEach(el => {
+                el.style.display = 'none';
+            });
+        }
+
+        /**
+         * 设置加载状态
+         */
+        function setLoading(form, show) {
+            const loadingEl = document.getElementById(form + 'Loading');
+            if (loadingEl) {
+                loadingEl.classList.toggle('show', show);
+            }
+        }
+    </script>
+</body>
+</html>

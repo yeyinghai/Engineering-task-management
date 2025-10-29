@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline';">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <title>施工任务管理系统 - 后台管理</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="styles/main.css">
+    <link rel="stylesheet" href="styles/admin.css">
+    <link rel="stylesheet" href="styles/database-status.css">
+    <script>
+        // 权限检查：确保用户已登录
+        (function checkAuth() {
+            // 标记：防止重复检查
+            if (window.__authChecked) return;
+            window.__authChecked = true;
+
+            // 检查登录状态
+            fetch('api/index.php/auth?action=check', {
+                method: 'GET',
+                credentials: 'include'
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (!data.success) {
+                    // 未登录，重定向到登录页面
+                    window.location.href = 'login.html';
+                } else {
+                    // 已登录，显示用户名（可选）
+                    console.log('用户已登录:', data.data.username);
+                }
+            })
+            .catch(error => {
+                console.error('权限检查失败:', error);
+                // 错误时也重定向到登录页面
+                window.location.href = 'login.html';
+            });
+        })();
+    </script>
+</head>
+<body>
+    <div class="container">
+        <!-- 顶部导航 -->
+        <header class="admin-header">
+            <h1>施工任务 - 后台管理</h1>
+            <div class="admin-nav">
+                <button id="personnel-tab" class="nav-btn active">人员管理</button>
+                <button id="category-tab" class="nav-btn">类别管理</button>
+                <button id="tasks-tab" class="nav-btn">任务类别详情</button>
+                <button id="stats-tab" class="nav-btn">统计报表</button>
+                <button id="database-tab" class="nav-btn">数据库管理</button>
+                <button id="back-to-main" class="nav-btn secondary">返回主页</button>
+                <div style="display: flex; align-items: center; gap: 10px; margin-left: auto; border-left: 1px solid #ddd; padding-left: 10px;">
+                    <span style="font-size: 14px; color: #666;">用户: <strong id="admin-username-display">-</strong></span>
+                    <button onclick="openAdminChangePasswordModal()" class="nav-btn secondary" style="padding: 6px 12px; font-size: 14px; margin: 0;">修改账号</button>
+                    <button onclick="handleAdminLogout()" class="nav-btn secondary" style="padding: 6px 12px; font-size: 14px; margin: 0;">登出</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- 人员管理页面 -->
+        <main id="personnel-section" class="admin-section active">
+            <div class="section-header">
+                <h2>施工人员管理</h2>
+                <div class="personnel-header-buttons">
+                    <button id="add-personnel-btn" class="btn-primary">添加人员</button>
+                    <button id="working-hours-btn" class="btn-secondary">上下班时间设置</button>
+                </div>
+            </div>
+
+            <!-- 人员搜索和筛选 -->
+            <div class="admin-controls">
+                <div class="search-section">
+                    <input type="text" id="personnel-search" placeholder="搜索人员姓名、角色或部门...">
+                </div>
+                <div class="filter-section">
+                    <select id="role-filter">
+                        <option value="all">所有角色</option>
+                    </select>
+                    <select id="department-filter">
+                        <option value="all">所有部门</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- 人员列表 -->
+            <div class="personnel-grid">
+                <div class="grid-header">
+                    <div>姓名</div>
+                    <div>角色</div>
+                    <div>部门</div>
+                    <div>电话</div>
+                    <div>创建时间</div>
+                    <div>操作</div>
+                </div>
+                <div id="personnel-list" class="grid-content">
+                    <div class="no-data">暂无人员数据</div>
+                </div>
+            </div>
+        </main>
+
+        <!-- 类别管理页面 -->
+        <main id="category-section" class="admin-section">
+            <div class="section-header">
+                <h2>任务类别管理</h2>
+                <div class="category-controls">
+                    <button id="add-category-btn" class="btn-primary">添加根类别</button>
+                    <button id="expand-all-btn" class="btn-secondary">展开全部</button>
+                    <button id="collapse-all-btn" class="btn-secondary">收起全部</button>
+                </div>
+            </div>
+
+            <!-- 搜索功能 -->
+            <div class="admin-controls">
+                <div class="search-section">
+                    <input type="text" id="category-search" placeholder="搜索类别名称或路径...">
+                    <button id="clear-search-btn" class="btn-secondary">清除</button>
+                </div>
+            </div>
+
+            <!-- 统计信息 -->
+            <div class="category-stats-bar">
+                <div class="stat-item">
+                    <span class="stat-icon">📊</span>
+                    <span class="stat-label">类别总数</span>
+                    <span id="category-count" class="stat-value">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-icon">📏</span>
+                    <span class="stat-label">最大层级</span>
+                    <span id="level-info" class="stat-value">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-icon">🌿</span>
+                    <span class="stat-label">叶子节点</span>
+                    <span id="leaf-count" class="stat-value">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-icon">🌳</span>
+                    <span class="stat-label">根节点</span>
+                    <span id="root-count" class="stat-value">0</span>
+                </div>
+            </div>
+
+            <!-- 类别树形结构 -->
+            <div class="category-tree-container">
+                <div id="category-tree" class="category-tree">
+                    <div class="no-categories">暂无类别数据</div>
+                </div>
+            </div>
+
+            <!-- 类别路径导航 -->
+            <div id="category-breadcrumb" class="category-breadcrumb" style="display: none;">
+                <span class="breadcrumb-label">当前位置：</span>
+                <div class="breadcrumb-path"></div>
+            </div>
+        </main>
+
+        <!-- 任务类别详情页面 -->
+        <main id="tasks-section" class="admin-section">
+            <div class="section-header">
+                <h2>任务类别详情</h2>
+                <div class="task-controls">
+                    <select id="category-filter-tasks">
+                        <option value="all">所有类别</option>
+                    </select>
+                    <select id="status-filter-tasks">
+                        <option value="all">所有状态</option>
+                        <option value="pending">待办</option>
+                        <option value="in-progress">进行中</option>
+                        <option value="completed">已完成</option>
+                    </select>
+                    <button id="refresh-tasks-btn" class="btn-secondary">刷新</button>
+                </div>
+            </div>
+
+            <!-- 任务统计卡片 -->
+            <div class="task-stats-cards">
+                <div class="stat-card">
+                    <h3>总任务数</h3>
+                    <div class="stat-number" id="total-tasks-count">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>已完成</h3>
+                    <div class="stat-number completed" id="completed-tasks-count">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>进行中</h3>
+                    <div class="stat-number in-progress" id="inprogress-tasks-count">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>待办</h3>
+                    <div class="stat-number pending" id="pending-tasks-count">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>平均完成天数</h3>
+                    <div class="stat-number" id="avg-completion-days">0</div>
+                </div>
+            </div>
+
+            <!-- 任务列表 -->
+            <div class="tasks-grid">
+                <div class="grid-header">
+                    <div>标题</div>
+                    <div>类别</div>
+                    <div>状态</div>
+                    <div>分配人员</div>
+                    <div>创建时间</div>
+                    <div>完成时间</div>
+                    <div>用时天数</div>
+                    <div>操作</div>
+                </div>
+                <div id="tasks-list" class="grid-content">
+                    <div class="no-data">暂无任务数据</div>
+                </div>
+            </div>
+        </main>
+
+        <!-- 统计报表页面 -->
+        <main id="stats-section" class="admin-section">
+            <div class="section-header">
+                <h2>统计报表</h2>
+                <div class="stats-controls">
+                    <input type="date" id="stats-start-date">
+                    <input type="date" id="stats-end-date">
+                    <button id="generate-stats" class="btn-secondary">生成报表</button>
+                    <button id="export-word-btn" class="btn-primary">导出Word报表</button>
+                </div>
+            </div>
+
+            <!-- 总体统计卡片 -->
+            <div class="stats-grid">
+                <div class="stats-card">
+                    <h3>总体统计</h3>
+                    <div class="stats-content">
+                        <div class="stat-item">
+                            <span class="stat-label">总任务数:</span>
+                            <span id="total-tasks-stat" class="stat-value">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">已完成:</span>
+                            <span id="completed-tasks-stat" class="stat-value">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">进行中:</span>
+                            <span id="inprogress-tasks-stat" class="stat-value">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">待办:</span>
+                            <span id="pending-tasks-stat" class="stat-value">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stats-card">
+                    <h3>人员工作量统计</h3>
+                    <div id="personnel-workload" class="stats-content">
+                        <div class="no-data">请选择日期范围生成报表</div>
+                    </div>
+                </div>
+
+                <div class="stats-card">
+                    <h3>类别分布</h3>
+                    <div id="category-distribution" class="stats-content">
+                        <div class="no-data">请选择日期范围生成报表</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 类别完成率统计 - 左右2列布局 -->
+            <div class="section-header">
+                <h2>类别任务完成率统计</h2>
+            </div>
+            <div class="category-stats-layout">
+                <!-- 左侧：一级类别菜单 -->
+                <div class="category-stats-left">
+                    <h3>选择类别</h3>
+                    <div id="category-stats-menu" class="category-stats-menu">
+                        <div class="no-data">暂无类别数据</div>
+                    </div>
+                </div>
+                <!-- 右侧：圆形百分比统计 -->
+                <div class="category-stats-right">
+                    <div id="category-stats-display" class="category-stats-display">
+                        <div class="no-data">请选择类别查看详情</div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- 数据库管理页面 -->
+        <main id="database-section" class="admin-section">
+            <div class="section-header">
+                <h2>数据库管理</h2>
+            </div>
+
+            <div class="database-controls">
+                <div class="control-group">
+                    <h3>数据导入导出</h3>
+                    <div class="button-group">
+                        <button id="export-data-btn" class="btn-secondary">导出数据</button>
+                        <button id="import-data-btn" class="btn-secondary">导入数据</button>
+                        <button id="import-text-btn" class="btn-secondary">手动导入</button>
+                        <input type="file" id="import-file-input" accept=".json" style="display: none;">
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 添加/编辑人员模态框 -->
+    <div id="personnel-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" id="close-personnel-modal">&times;</span>
+            <h2 id="personnel-modal-title">添加人员</h2>
+            <form id="personnel-form">
+                <div class="form-group">
+                    <label>姓名 <span class="required">*</span></label>
+                    <input type="text" id="personnel-name" placeholder="请输入姓名" required>
+                </div>
+                <div class="form-group">
+                    <label>角色</label>
+                    <input type="text" id="personnel-role" placeholder="如：主管、电工、木工等" list="role-suggestions">
+                    <datalist id="role-suggestions">
+                        <option value="主管">
+                        <option value="电工">
+                        <option value="木工">
+                        <option value="水工">
+                        <option value="瓦工">
+                        <option value="油工">
+                        <option value="钢筋工">
+                        <option value="混凝土工">
+                    </datalist>
+                </div>
+                <div class="form-group">
+                    <label>部门</label>
+                    <input type="text" id="personnel-department" placeholder="如：A组、B组等" list="department-suggestions">
+                    <datalist id="department-suggestions">
+                        <option value="A组">
+                        <option value="B组">
+                        <option value="C组">
+                        <option value="质检组">
+                        <option value="安全组">
+                    </datalist>
+                </div>
+                <div class="form-group">
+                    <label>联系电话</label>
+                    <input type="tel" id="personnel-phone" placeholder="请输入电话号码">
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">保存</button>
+                    <button type="button" id="cancel-personnel" class="btn-secondary">取消</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 添加/编辑类别模态框 -->
+    <div id="category-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" id="close-category-modal">&times;</span>
+            <h2 id="category-modal-title">添加类别</h2>
+            <form id="category-form">
+                <div class="form-group">
+                    <label>类别名称 <span class="required">*</span></label>
+                    <input type="text" id="category-name" placeholder="请输入类别名称" required>
+                </div>
+                <div class="form-group">
+                    <label>父类别</label>
+                    <select id="category-parent">
+                        <option value="">选择父类别（留空为根类别）</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>预览路径</label>
+                    <div id="category-path-preview" class="path-preview">未选择父类别</div>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">保存</button>
+                    <button type="button" id="cancel-category" class="btn-secondary">取消</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 移动类别模态框 -->
+    <div id="move-category-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" id="close-move-modal">&times;</span>
+            <h2>移动类别</h2>
+            <form id="move-category-form">
+                <div class="form-group">
+                    <label>当前类别</label>
+                    <div id="current-category-info" class="category-info"></div>
+                </div>
+                <div class="form-group">
+                    <label>移动到</label>
+                    <select id="move-target-parent" required>
+                        <option value="">选择目标位置</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>新路径预览</label>
+                    <div id="new-path-preview" class="path-preview">请选择目标位置</div>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">移动</button>
+                    <button type="button" id="cancel-move" class="btn-secondary">取消</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 类别删除确认弹窗 -->
+    <div id="delete-confirm-modal" class="delete-confirm-modal">
+        <div class="delete-confirm-content">
+            <div class="delete-confirm-header">
+                <h3>确认删除</h3>
+            </div>
+            <div class="delete-confirm-body">
+                <div class="delete-confirm-message">确定要删除类别</div>
+                <div id="delete-confirm-category" class="delete-confirm-category"></div>
+                <div class="delete-confirm-warning">删除后将无法恢复，请谨慎操作</div>
+            </div>
+            <div class="delete-confirm-actions">
+                <button type="button" id="confirm-delete-btn" class="delete-confirm-btn btn-confirm-delete">确认删除</button>
+                <button type="button" id="cancel-delete-btn" class="delete-confirm-btn btn-cancel-delete">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 成功提示弹窗 -->
+    <div id="success-modal" class="success-modal">
+        <div class="success-content">
+            <div class="success-header">
+                <h3>操作成功</h3>
+            </div>
+            <div class="success-body">
+                <div id="success-message" class="success-message-text">操作已成功完成</div>
+            </div>
+            <div class="success-actions">
+                <button type="button" id="success-ok-btn" class="success-btn btn-success-ok">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 警告提示弹窗 -->
+    <div id="warning-modal" class="warning-modal">
+        <div class="warning-content">
+            <div class="warning-header">
+                <h3>操作提示</h3>
+            </div>
+            <div class="warning-body">
+                <div id="warning-message" class="warning-message-text">请注意相关操作限制</div>
+            </div>
+            <div class="warning-actions">
+                <button type="button" id="warning-ok-btn" class="warning-btn btn-warning-ok">知道了</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 上下班时间设置模态框 -->
+    <div id="working-hours-modal" class="modal">
+        <div class="modal-content working-hours-modal-content">
+            <span class="close" id="close-working-hours-modal">&times;</span>
+            <h2>上下班时间设置</h2>
+
+            <!-- 全局时间设置 -->
+            <div class="working-hours-section">
+                <h3>全局默认时间</h3>
+                <div class="form-group">
+                    <label>默认上班时间</label>
+                    <input type="time" id="global-start-time" value="08:00">
+                </div>
+                <div class="form-group">
+                    <label>默认下班时间</label>
+                    <input type="time" id="global-end-time" value="17:00">
+                </div>
+                <button id="save-global-hours-btn" class="btn-primary">保存全局时间</button>
+            </div>
+
+            <!-- 个人时间设置 -->
+            <div class="working-hours-section">
+                <h3>个人时间设置</h3>
+                <div class="personnel-hours-controls">
+                    <div class="search-box">
+                        <input type="text" id="hours-personnel-search" placeholder="搜索人员...">
+                    </div>
+                </div>
+                <div class="personnel-hours-list">
+                    <div id="personnel-hours-content" class="hours-grid">
+                        <div class="no-data">暂无人员数据</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" id="close-working-hours-btn" class="btn-secondary">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑个人时间模态框 -->
+    <div id="edit-person-hours-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" id="close-edit-person-hours">&times;</span>
+            <h2 id="edit-person-hours-title">编辑时间设置</h2>
+            <form id="edit-person-hours-form">
+                <div class="form-group">
+                    <label>人员姓名</label>
+                    <div id="edit-person-name" class="person-name-display"></div>
+                </div>
+                <div class="form-group">
+                    <label>上班时间</label>
+                    <input type="time" id="edit-start-time" required>
+                </div>
+                <div class="form-group">
+                    <label>下班时间</label>
+                    <input type="time" id="edit-end-time" required>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="use-global-hours-checkbox">
+                        使用全局默认时间
+                    </label>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">保存</button>
+                    <button type="button" id="cancel-edit-person-hours" class="btn-secondary">取消</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 修改账号模态框（包含用户名和密码） -->
+    <div id="admin-change-password-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" id="close-admin-change-password-modal">&times;</span>
+            <h2>修改账号信息</h2>
+            <form id="admin-change-password-form">
+                <div class="form-group">
+                    <label for="admin-current-password">当前密码:</label>
+                    <input type="password" id="admin-current-password" placeholder="请输入当前密码（必填）" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="admin-new-username">新用户名 (可选):</label>
+                    <input type="text" id="admin-new-username" placeholder="3-20个字符，仅包含字母、数字、下划线">
+                </div>
+
+                <div class="form-group">
+                    <label for="admin-new-password">新密码 (可选):</label>
+                    <input type="password" id="admin-new-password" placeholder="至少6个字符，留空表示不修改">
+                </div>
+
+                <div class="form-group">
+                    <label for="admin-confirm-password">确认新密码:</label>
+                    <input type="password" id="admin-confirm-password" placeholder="请再次输入新密码">
+                </div>
+
+                <div id="admin-change-password-message" style="margin: 15px 0; padding: 10px; border-radius: 4px; display: none;"></div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">确认修改</button>
+                    <button type="button" id="cancel-admin-change-password" class="btn-secondary">取消</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 添加JSZip库用于生成标准Word文档 -->
+    <script src="src/jszip.min.js"></script>
+    <script>
+        // 等待JSZip库加载完成
+        window.addEventListener('load', function() {
+            console.log('JSZip available:', typeof window.JSZip !== 'undefined');
+            if (typeof window.JSZip === 'undefined') {
+                console.warn('JSZip library failed to load, Word export will use fallback format');
+            }
+        });
+    </script>
+
+    <script>
+        // 加载用户信息
+        async function loadAdminUserInfo() {
+            try {
+                const response = await fetch('api/index.php/auth?action=check', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                if (data.success && data.data && data.data.username) {
+                    document.getElementById('admin-username-display').textContent = data.data.username;
+                }
+            } catch (error) {
+                console.error('加载用户信息失败:', error);
+            }
+        }
+
+        // 处理登出
+        async function handleAdminLogout() {
+            if (!confirm('确定要登出吗？')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('api/index.php/auth?action=logout', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                if (data.success) {
+                    // 清空保存的凭证
+                    localStorage.removeItem('todolist_credentials');
+                    // 跳转到登录页面
+                    window.location.href = 'login.html';
+                } else {
+                    alert('登出失败，请重试');
+                }
+            } catch (error) {
+                console.error('登出错误:', error);
+                alert('登出失败，请重试');
+            }
+        }
+
+        // 页面加载时获取用户信息
+        document.addEventListener('DOMContentLoaded', loadAdminUserInfo);
+
+        // 打开修改账号模态框
+        function openAdminChangePasswordModal() {
+            document.getElementById('admin-change-password-modal').style.display = 'block';
+            document.getElementById('admin-change-password-form').reset();
+            document.getElementById('admin-change-password-message').style.display = 'none';
+        }
+
+        // 关闭修改账号模态框
+        function closeAdminChangePasswordModal() {
+            document.getElementById('admin-change-password-modal').style.display = 'none';
+            document.getElementById('admin-change-password-form').reset();
+            document.getElementById('admin-change-password-message').style.display = 'none';
+        }
+
+        // 修改账号表单提交（支持修改用户名和/或密码）
+        document.getElementById('admin-change-password-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const currentPassword = document.getElementById('admin-current-password').value;
+            const newUsername = document.getElementById('admin-new-username').value.trim();
+            const newPassword = document.getElementById('admin-new-password').value;
+            const confirmPassword = document.getElementById('admin-confirm-password').value;
+            const messageEl = document.getElementById('admin-change-password-message');
+
+            // 至少需要修改一项
+            if (!newUsername && !newPassword) {
+                messageEl.textContent = '请至少修改用户名或密码中的一项';
+                messageEl.className = 'error-message';
+                messageEl.style.display = 'block';
+                return;
+            }
+
+            // 如果修改用户名，检查格式
+            if (newUsername) {
+                if (newUsername.length < 3 || newUsername.length > 20) {
+                    messageEl.textContent = '用户名长度需要在 3-20 个字符之间';
+                    messageEl.className = 'error-message';
+                    messageEl.style.display = 'block';
+                    return;
+                }
+                if (!/^[a-zA-Z0-9_]+$/.test(newUsername)) {
+                    messageEl.textContent = '用户名只能包含字母、数字和下划线';
+                    messageEl.className = 'error-message';
+                    messageEl.style.display = 'block';
+                    return;
+                }
+            }
+
+            // 如果修改密码，检查格式
+            if (newPassword) {
+                if (newPassword.length < 6) {
+                    messageEl.textContent = '新密码至少需要 6 个字符';
+                    messageEl.className = 'error-message';
+                    messageEl.style.display = 'block';
+                    return;
+                }
+
+                if (newPassword !== confirmPassword) {
+                    messageEl.textContent = '两次输入的新密码不一致';
+                    messageEl.className = 'error-message';
+                    messageEl.style.display = 'block';
+                    return;
+                }
+            }
+
+            try {
+                const response = await fetch('api/index.php/auth?action=change-account', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        currentPassword: currentPassword,
+                        newUsername: newUsername,
+                        newPassword: newPassword,
+                        confirmPassword: confirmPassword
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    messageEl.textContent = '账号信息修改成功！';
+                    messageEl.className = 'success-message';
+                    messageEl.style.display = 'block';
+                    document.getElementById('admin-change-password-form').reset();
+
+                    // 如果修改了用户名，更新页面显示
+                    if (data.data && data.data.username) {
+                        document.getElementById('admin-username-display').textContent = data.data.username;
+                    }
+
+                    // 2秒后关闭模态框
+                    setTimeout(() => {
+                        closeAdminChangePasswordModal();
+                    }, 2000);
+                } else {
+                    messageEl.textContent = data.error || data.message || '修改失败';
+                    messageEl.className = 'error-message';
+                    messageEl.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('修改账号错误:', error);
+                messageEl.textContent = '修改失败，请重试';
+                messageEl.className = 'error-message';
+                messageEl.style.display = 'block';
+            }
+        });
+
+        // 关闭按钮
+        document.getElementById('cancel-admin-change-password').addEventListener('click', closeAdminChangePasswordModal);
+        document.getElementById('close-admin-change-password-modal').addEventListener('click', closeAdminChangePasswordModal);
+
+        // 点击模态框外部关闭
+        window.addEventListener('click', function(event) {
+            const modal = document.getElementById('admin-change-password-modal');
+            if (event.target === modal) {
+                closeAdminChangePasswordModal();
+            }
+        });
+
+        // 添加样式类
+        const style = document.createElement('style');
+        style.textContent = `
+            .error-message {
+                background-color: #ffebee;
+                color: #c62828;
+                border: 1px solid #ef5350;
+            }
+            .success-message {
+                background-color: #e8f5e9;
+                color: #2e7d32;
+                border: 1px solid #66bb6a;
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+
+    <!-- 加载admin管理界面 -->
+    <script type="module" src="src/admin.js"></script>
+</body>
+</html>

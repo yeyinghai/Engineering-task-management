@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据库配置向导 - 智能化施工任务管理系统</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .wizard-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 600px;
+            overflow: hidden;
+        }
+
+        .wizard-header {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+        }
+
+        .wizard-header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .wizard-header p {
+            opacity: 0.9;
+            font-size: 0.95em;
+        }
+
+        .wizard-body {
+            padding: 40px 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 0.95em;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-hint {
+            font-size: 0.85em;
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #764ba2, #667eea);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status-message {
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+
+        .status-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+            display: block;
+        }
+
+        .status-loading {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+            display: block;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #e0e0e0;
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+            color: #7f8c8d;
+            font-weight: 600;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .preset-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .preset-btn {
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            background: white;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+
+        .preset-btn:hover {
+            border-color: #667eea;
+            color: #667eea;
+        }
+
+        @media (max-width: 600px) {
+            .wizard-header {
+                padding: 30px 20px;
+            }
+
+            .wizard-body {
+                padding: 20px;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .btn-group {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="wizard-container">
+        <div class="wizard-header">
+            <h1>🛠️ 数据库配置向导</h1>
+            <p>智能化施工任务管理系统 - 初始化配置</p>
+        </div>
+
+        <div class="wizard-body">
+            <div class="tabs">
+                <div class="tab active" onclick="switchTab('custom')">🔧 自定义配置</div>
+                <div class="tab" onclick="switchTab('preset')">⚡ 快速预设</div>
+            </div>
+
+            <div id="status-message" class="status-message"></div>
+
+            <!-- 自定义配置标签页 -->
+            <div id="custom" class="tab-content active">
+                <div class="form-group">
+                    <label>数据库主机 *</label>
+                    <input type="text" id="host" placeholder="localhost" value="localhost">
+                    <div class="form-hint">通常为 localhost 或 127.0.0.1</div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>数据库端口 *</label>
+                        <input type="number" id="port" placeholder="3306" value="3306" min="1" max="65535">
+                    </div>
+                    <div class="form-group">
+                        <label>字符编码 *</label>
+                        <select id="charset">
+                            <option value="utf8mb4" selected>utf8mb4</option>
+                            <option value="utf8">utf8</option>
+                            <option value="gbk">gbk</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>数据库名称 *</label>
+                    <input type="text" id="database" placeholder="todolist_db" value="todolist_db">
+                    <div class="form-hint">将创建此数据库（如果不存在）</div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>数据库用户 *</label>
+                        <input type="text" id="username" placeholder="root" value="todolist">
+                    </div>
+                    <div class="form-group">
+                        <label>数据库密码 *</label>
+                        <input type="password" id="password" placeholder="输入密码" value="12345678">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 快速预设标签页 -->
+            <div id="preset" class="tab-content">
+                <p style="margin-bottom: 15px; color: #7f8c8d;">选择预设配置或填写自定义信息：</p>
+
+                <div class="preset-buttons">
+                    <button class="preset-btn" onclick="usePreset('phpstudy')">
+                        📦 小皮面板 (PhpStudy)<br>
+                        <span style="font-size: 0.85em; opacity: 0.7;">localhost:3306</span>
+                    </button>
+                    <button class="preset-btn" onclick="usePreset('docker')">
+                        🐳 Docker<br>
+                        <span style="font-size: 0.85em; opacity: 0.7;">db:3306</span>
+                    </button>
+                    <button class="preset-btn" onclick="usePreset('remote')">
+                        ☁️ 远程服务器<br>
+                        <span style="font-size: 0.85em; opacity: 0.7;">自定义主机</span>
+                    </button>
+                    <button class="preset-btn" onclick="usePreset('custom')">
+                        ⚙️ 自定义<br>
+                        <span style="font-size: 0.85em; opacity: 0.7;">手动配置</span>
+                    </button>
+                </div>
+
+                <div style="background: #f0f0f0; padding: 15px; border-radius: 5px; margin-top: 20px;">
+                    <p style="font-weight: 600; margin-bottom: 10px;">预设说明：</p>
+                    <ul style="margin-left: 20px; color: #7f8c8d; font-size: 0.9em; line-height: 1.8;">
+                        <li><strong>小皮面板：</strong> localhost, 用户:todolist, 密码:12345678</li>
+                        <li><strong>Docker：</strong> db服务, 用户:root, 密码:root</li>
+                        <li><strong>远程服务器：</strong> 指定IP或域名</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn-secondary" onclick="resetForm()">重置表单</button>
+                <button class="btn-primary" id="testBtn" onclick="testConnection()">测试连接</button>
+                <button class="btn-primary" id="installBtn" onclick="installDatabase()" style="display: none;">开始安装</button>
+            </div>
+
+            <div id="result-message" style="margin-top: 20px; display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        // 标签页切换
+        function switchTab(tabName) {
+            const tabs = document.querySelectorAll('.tab-content');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            const activeTab = document.getElementById(tabName);
+            if (activeTab) {
+                activeTab.classList.add('active');
+            }
+
+            const tabButtons = document.querySelectorAll('.tab');
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+
+            // 找到对应的标签按钮并激活它
+            tabButtons.forEach(btn => {
+                if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(tabName)) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+
+        // 使用预设配置
+        function usePreset(preset) {
+            const presets = {
+                phpstudy: {
+                    host: 'localhost',
+                    port: 3306,
+                    database: 'todolist_db',
+                    username: 'todolist',
+                    password: '12345678',
+                    charset: 'utf8mb4'
+                },
+                docker: {
+                    host: 'db',
+                    port: 3306,
+                    database: 'todolist_db',
+                    username: 'root',
+                    password: 'root',
+                    charset: 'utf8mb4'
+                },
+                remote: {
+                    host: '',
+                    port: 3306,
+                    database: 'todolist_db',
+                    username: '',
+                    password: '',
+                    charset: 'utf8mb4'
+                },
+                custom: {
+                    host: '',
+                    port: 3306,
+                    database: 'todolist_db',
+                    username: '',
+                    password: '',
+                    charset: 'utf8mb4'
+                }
+            };
+
+            const config = presets[preset];
+            if (config) {
+                document.getElementById('host').value = config.host;
+                document.getElementById('port').value = config.port;
+                document.getElementById('database').value = config.database;
+                document.getElementById('username').value = config.username;
+                document.getElementById('password').value = config.password;
+                document.getElementById('charset').value = config.charset;
+
+                // 切换到自定义标签页
+                document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+                document.getElementById('custom').classList.add('active');
+                document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+                document.querySelectorAll('.tab')[0].classList.add('active');
+
+                showStatus('预设配置已加载，请检查信息后点击"测试连接"', 'info');
+            }
+        }
+
+        // 显示状态消息
+        function showStatus(message, type = 'info') {
+            const statusEl = document.getElementById('status-message');
+            statusEl.textContent = message;
+            statusEl.className = 'status-message status-' + type;
+        }
+
+        // 重置表单
+        function resetForm() {
+            document.getElementById('host').value = 'localhost';
+            document.getElementById('port').value = 3306;
+            document.getElementById('database').value = 'todolist_db';
+            document.getElementById('username').value = 'todolist';
+            document.getElementById('password').value = '12345678';
+            document.getElementById('charset').value = 'utf8mb4';
+            document.getElementById('status-message').style.display = 'none';
+            document.getElementById('result-message').style.display = 'none';
+            document.getElementById('testBtn').style.display = 'inline-block';
+            document.getElementById('installBtn').style.display = 'none';
+        }
+
+        // 验证表单
+        function validateForm() {
+            const fields = ['host', 'port', 'database', 'username'];
+            for (let field of fields) {
+                if (!document.getElementById(field).value.trim()) {
+                    showStatus('请填写所有必填字段', 'error');
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // 获取表单数据
+        function getFormData() {
+            return {
+                host: document.getElementById('host').value,
+                port: parseInt(document.getElementById('port').value),
+                database: document.getElementById('database').value,
+                username: document.getElementById('username').value,
+                password: document.getElementById('password').value,
+                charset: document.getElementById('charset').value
+            };
+        }
+
+        // 测试连接
+        async function testConnection() {
+            if (!validateForm()) return;
+
+            const testBtn = document.getElementById('testBtn');
+            const installBtn = document.getElementById('installBtn');
+
+            testBtn.disabled = true;
+            showStatus('⏳ 正在测试数据库连接...', 'loading');
+
+            try {
+                const config = getFormData();
+                const response = await fetch('test-connection.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(config)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showStatus('✓ 数据库连接成功！MySQL版本: ' + result.mysql_version, 'success');
+                    installBtn.style.display = 'inline-block';
+                } else {
+                    showStatus('✗ 连接失败: ' + result.error, 'error');
+                    installBtn.style.display = 'none';
+                }
+            } catch (error) {
+                showStatus('✗ 请求失败: ' + error.message, 'error');
+                installBtn.style.display = 'none';
+            } finally {
+                testBtn.disabled = false;
+            }
+        }
+
+        // 安装数据库
+        async function installDatabase() {
+            if (!validateForm()) return;
+
+            const installBtn = document.getElementById('installBtn');
+            installBtn.disabled = true;
+
+            showStatus('⏳ 正在创建数据库和表结构...', 'loading');
+
+            try {
+                const config = getFormData();
+                const response = await fetch('do-install.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(config)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showStatus('🎉 数据库安装成功！', 'success');
+                    showResult('✓ 数据库和所有表结构已成功创建', 'success');
+                    setTimeout(() => {
+                        window.location.href = '../../index.html';
+                    }, 2000);
+                } else {
+                    showStatus('✗ 安装失败: ' + result.error, 'error');
+                    showResult(result.error, 'error');
+                }
+            } catch (error) {
+                showStatus('✗ 请求失败: ' + error.message, 'error');
+                showResult(error.message, 'error');
+            } finally {
+                installBtn.disabled = false;
+            }
+        }
+
+        // 显示结果信息
+        function showResult(message, type = 'info') {
+            const resultEl = document.getElementById('result-message');
+            resultEl.textContent = message;
+            resultEl.className = 'status-message status-' + type;
+            resultEl.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
