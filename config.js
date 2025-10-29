@@ -1,8 +1,3 @@
-/**
- * 小皮面板(PhpStudy)专用配置文件
- */
-
-// 小皮面板环境检测：同时识别常见局域网 IP 段 (192.168.*, 10.*, 172.16-31.*)
 const host = window.location.hostname;
 const isLocalIP = host === 'localhost' || host === '127.0.0.1' || /^10\.|^192\.168\.|^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(host);
 const isPhpStudy = (window.location.protocol === 'http:' || window.location.protocol === 'https:') && isLocalIP;
@@ -10,21 +5,21 @@ const isPhpStudy = (window.location.protocol === 'http:' || window.location.prot
 // 配置选项
 const CONFIG = {
     // 应用信息
-    APP_NAME: '智能化施工任务管理系统',
-    VERSION: '1.0.0 - PhpStudy版',
+    APP_NAME: '项目施工任务管理系统',
+    VERSION: '1.0.0 - 自动安装版',
 
-    // 数据库配置 - 针对小皮面板优化
-    USE_SERVER_API: true, // 小皮面板环境默认启用服务器API
+    // 数据库配置
+    USE_SERVER_API: true, // 环境默认启用服务器API
     API_BASE_URL: window.location.origin + '/api', // 使用当前域名
-    API_TIMEOUT: 10000, // 小皮面板环境增加超时时间
+    API_TIMEOUT: 10000, // 环境增加超时时间
 
-    // 小皮面板数据库默认配置
+    // 数据库默认配置
     DATABASE: {
         HOST: 'localhost',
         PORT: 3306,
         NAME: 'todolist_db',
         USERNAME: 'todolist',
-        PASSWORD: '12345678' // 小皮面板默认密码
+        PASSWORD: '12345678' // 默认密码
     },
 
     // 本地存储配置
@@ -45,13 +40,13 @@ const CONFIG = {
         STATISTICS: true,
         NOTES: true,
         PERSONNEL_MANAGEMENT: true,
-        SERVER_SYNC: true, // 小皮面板环境启用服务器同步
+        SERVER_SYNC: true, // 启用服务器同步
         AUTO_BACKUP: true  // 自动备份功能
     },
 
     // 小皮面板特定配置
     PHPSTUDY: {
-        DEFAULT_SITE_ROOT: 'WWW', // 小皮面板默认网站目录
+        DEFAULT_SITE_ROOT: 'WWW', // 网站目录
         MYSQL_PORT: 3306,
         APACHE_PORT: 80,
         NGINX_PORT: 80,
