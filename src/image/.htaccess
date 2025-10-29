@@ -1,0 +1,26 @@
+# 允许访问图片文件
+<Files "*.jpg">
+    Allow from all
+</Files>
+<Files "*.jpeg">
+    Allow from all
+</Files>
+<Files "*.png">
+    Allow from all
+</Files>
+<Files "*.gif">
+    Allow from all
+</Files>
+<Files "*.webp">
+    Allow from all
+</Files>
+
+# 设置缓存头
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/jpeg "access plus 1 month"
+    ExpiresByType image/jpg "access plus 1 month"
+    ExpiresByType image/png "access plus 1 month"
+    ExpiresByType image/gif "access plus 1 month"
+    ExpiresByType image/webp "access plus 1 month"
+</IfModule>
