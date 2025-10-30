@@ -121,7 +121,7 @@
 2. **配置环境变量**
    ```bash
    # 复制配置文件
-   cp .env .env.local
+   cp .env.example .env.local
 
    # 编辑 .env.local，填入数据库信息
    nano .env.local
@@ -144,7 +144,7 @@
 
 1. **克隆或下载项目**
    ```bash
-   git clone https://your-repo.git
+   git clone https://github.com/yeyinghai/Engineering-task-management.git
    # 或直接下载 ZIP 文件
    ```
 
